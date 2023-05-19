@@ -1,0 +1,155 @@
+---
+title: "Control de patógenos de post cosecha en pera"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r, warning=FALSE, message=FALSE}
+pacman::p_load(
+  tidyverse, 
+  rio, 
+  janitor, 
+  lme4, 
+  DHARMa, 
+  emmeans, 
+  multcomp,
+  sjPlot,  
+  ggeffects,
+  ggplot2,
+)
+conflicted::conflict_prefer("filter", "dplyr")
+conflicted::conflict_prefer("select", "dplyr")
+theme_set(theme_bw(base_size=12))
+```
+
+## Carga de datos
+
+```{r}
+datos <- rio::import("data/pera.csv") %>%
+  mutate_at(vars(year,time), as.factor) 
+```
+
+```{r}
+datos %>% str
+```
+
+## Gráficos de exploración
+
+Podredumbres totales
+
+```{r}
+datos %>% 
+  ggplot() + 
+  aes(x=time, y=total_roots/n) + 
+  geom_jitter(width=.2, col=2, alpha=.5) + 
+  geom_boxplot(width=.5, alpha=.1) + 
+  labs(x="Post harvest time", 
+       y="Incidence") + 
+  facet_grid(year~treatment)
+```
+
+Podredumbres por Botrytis
+
+```{r}
+datos %>% 
+  ggplot() + 
+  aes(x=time, y=botrytis/n) + 
+  geom_jitter(width=.2, col=2, alpha=.5) + 
+  geom_boxplot(width=.5, alpha=.1) + 
+  labs(x="Post harvest time", 
+       y="Botrytis incidence") + 
+  facet_grid(year~treatment)
+```
+
+Podredumbres por Alternaria
+
+```{r}
+datos %>% 
+  ggplot() + 
+  aes(x=time, y=alternaria/n) + 
+  geom_jitter(width=.2, col=2, alpha=.5) + 
+  geom_boxplot(width=.5, alpha=.1) + 
+  labs(x="Post harvest time", 
+       y="Alternaria incidence") + 
+  facet_grid(year~treatment)
+```
+
+Podredumbres por Penicilium
+
+```{r}
+datos %>% 
+  ggplot() + 
+  aes(x=time, y=penicilium/n) + 
+  geom_jitter(width=.2, col=2, alpha=.5) + 
+  geom_boxplot(width=.5, alpha=.1) + 
+  labs(x="Post harvest time)", 
+       y="Penicilium incidence") + 
+  facet_grid(year~treatment)
+```
+
+## Modelación
+
+### modelo 1: efecto tratamiento. Año y tiempo como aleatorios
+
+```{r}
+mod1 <- glmer(cbind(total_roots, n-total_roots) ~ treatment +                                    (1|year/time),
+          family="binomial", 
+             data= datos)
+summary(mod1)
+
+```
+
+```{r}
+simulateResiduals(mod1) %>% testResiduals()
+```
+
+```{r}
+tab_model(mod1)
+plot_model(mod1, type='pred', show.data=T,   bpe.color ="red")
+```
+
+```{r}
+car::Anova(mod1)
+```
+
+```{r}
+em1 <- emmeans(mod1, ~ treatment, type="response")
+res1 <- cld(em1, Letters = letters, alpha = .05, type = "response")
+knitr::kable(res1)
+```
+
+### Modelo 2: Analisis solo en tiempo final (150 días)
+
+```{r}
+datos2020<-datos%>%
+filter(time=="150")
+```
+
+```{r}
+mod2 <- glm(cbind(total_roots, n-total_roots) ~ treatment * year,
+          family="binomial", 
+             data= datos)
+summary(mod2)
+
+```
+
+```{r}
+simulateResiduals(mod2) %>% testResiduals()#test outliers significativo
+```
+
+```{r}
+tab_model(mod2)
+plot_model(mod2, type='pred', show.data=T,   bpe.color ="red")
+```
+
+```{r}
+car::Anova(mod2)
+```
+
+```{r}
+em2 <- emmeans(mod2, ~ treatment, by="year" , type="response")
+res2 <- cld(em2, Letters = letters, alpha = .05, type = "response")
+knitr::kable(res2)
+```
