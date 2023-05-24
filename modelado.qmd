@@ -1,0 +1,132 @@
+---
+title: "Modelado"
+format: html
+editor: visual
+---
+
+```{r, warning=FALSE, message=FALSE}
+pacman::p_load(
+  tidyverse, 
+  rio, 
+  janitor, 
+  lme4, 
+  DHARMa, 
+  emmeans, 
+  multcomp,
+  sjPlot,  
+  ggeffects,
+  ggplot2,
+)
+conflicted::conflict_prefer("filter", "dplyr")
+conflicted::conflict_prefer("select", "dplyr")
+theme_set(theme_bw(base_size=12))
+```
+
+## Carga de datos
+
+```{r}
+datos <- rio::import("data/pera.csv") %>%
+  mutate_at(vars(year,time), as.factor) 
+```
+
+```{r}
+datos %>% str
+```
+
+
+### modelo 1: efecto tratamiento. Año y tiempo como aleatorios
+
+```{r}
+mod1 <- glmer(cbind(total_roots, n-total_roots) ~ treatment +                                    (1|year/time),
+          family="binomial", 
+             data= datos)
+summary(mod1)
+
+```
+
+
+```{r}
+simulateResiduals(mod1) %>% testResiduals()
+```
+
+```{r}
+tab_model(mod1)
+plot_model(mod1, type='pred', show.data=T,   bpe.color ="red")
+```
+
+```{r}
+car::Anova(mod1)#No significativo
+```
+
+```{r}
+em1 <- emmeans(mod1, ~ treatment, type="response")
+res1 <- cld(em1, Letters = letters, alpha = .05, type = "response")
+knitr::kable(res1)
+```
+
+
+#### Modelo 2a: Analisis solo en tiempo final (150 días) con efecto fijo del tratamiento. Año como afecto aleatorio.
+
+```{r}
+datos150<-datos%>%
+filter(time=="150")
+
+mod2a <- glmer(cbind(total_roots, n-total_roots) ~ treatment +                                    (1|year),
+          family="binomial", 
+             data= datos150)
+summary(mod2a)
+```
+
+```{r}
+simulateResiduals(mod2a) %>% testResiduals()
+```
+
+```{r}
+tab_model(mod2a)
+plot_model(mod2a, type='pred', show.data=T,   bpe.color ="red")
+```
+
+```{r}
+car::Anova(mod2a)#efecto trat significativo
+```
+
+```{r}
+em2a <- emmeans(mod2a, ~ treatment , type="response")
+res2a <- cld(em2a, Letters = letters, alpha = .05, type = "response")
+knitr::kable(res2a)
+```
+
+### Modelo 2b: Analisis solo en tiempo final (150 días) con efecto tratamiento y año.
+
+```{r}
+datos150<-datos%>%
+filter(time=="150")
+```
+
+```{r}
+mod2b <- glm(cbind(total_roots, n-total_roots) ~ treatment * year,
+          family="binomial", 
+             data= datos150)
+summary(mod2b)
+
+```
+
+```{r}
+simulateResiduals(mod2b) %>% testResiduals()#test outliers significativo
+```
+
+```{r}
+tab_model(mod2b)
+plot_model(mod2b, type='pred', show.data=T,   bpe.color ="red")
+```
+
+```{r}
+car::Anova(mod2b)#trat significativo
+```
+
+```{r}
+em2 <- emmeans(mod2b, ~ treatment, by="year" , type="response")
+res2 <- cld(em2, Letters = letters, alpha = .05, type = "response")
+knitr::kable(res2)
+```
+
