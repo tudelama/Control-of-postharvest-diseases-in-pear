@@ -111,7 +111,7 @@ plot_model(mod1, type='pred', show.data=T,   bpe.color ="red")
 ```
 
 ```{r}
-car::Anova(mod1)
+car::Anova(mod1)#No significativo
 ```
 
 ```{r}
@@ -120,36 +120,65 @@ res1 <- cld(em1, Letters = letters, alpha = .05, type = "response")
 knitr::kable(res1)
 ```
 
-### Modelo 2: Analisis solo en tiempo final (150 días)
+#### Modelo 2a: Analisis solo en tiempo final (150 días) con efecto fijo del tratamiento. Año como afecto aleatorio. 
+```{r}
+datos150<-datos%>%
+filter(time=="150")
+
+mod2a <- glmer(cbind(total_roots, n-total_roots) ~ treatment +                                    (1|year),
+          family="binomial", 
+             data= datos150)
+summary(mod2a)
+```
 
 ```{r}
-datos2020<-datos%>%
+simulateResiduals(mod2a) %>% testResiduals()
+```
+```{r}
+tab_model(mod2a)
+plot_model(mod2a, type='pred', show.data=T,   bpe.color ="red")
+```
+```{r}
+car::Anova(mod2a)#efecto trat significativo
+```
+```{r}
+em2a <- emmeans(mod2a, ~ treatment , type="response")
+res2a <- cld(em2a, Letters = letters, alpha = .05, type = "response")
+knitr::kable(res2a)
+```
+
+
+
+### Modelo 2b: Analisis solo en tiempo final (150 días) con efecto tratamiento y año. 
+
+```{r}
+datos150<-datos%>%
 filter(time=="150")
 ```
 
 ```{r}
-mod2 <- glm(cbind(total_roots, n-total_roots) ~ treatment * year,
+mod2b <- glm(cbind(total_roots, n-total_roots) ~ treatment * year,
           family="binomial", 
-             data= datos)
-summary(mod2)
+             data= datos150)
+summary(mod2b)
 
 ```
 
 ```{r}
-simulateResiduals(mod2) %>% testResiduals()#test outliers significativo
+simulateResiduals(mod2b) %>% testResiduals()#test outliers significativo
 ```
 
 ```{r}
-tab_model(mod2)
-plot_model(mod2, type='pred', show.data=T,   bpe.color ="red")
+tab_model(mod2b)
+plot_model(mod2b, type='pred', show.data=T,   bpe.color ="red")
 ```
 
 ```{r}
-car::Anova(mod2)
+car::Anova(mod2b)#trat significativo
 ```
 
 ```{r}
-em2 <- emmeans(mod2, ~ treatment, by="year" , type="response")
+em2 <- emmeans(mod2b, ~ treatment, by="year" , type="response")
 res2 <- cld(em2, Letters = letters, alpha = .05, type = "response")
 knitr::kable(res2)
 ```
